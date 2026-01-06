@@ -1718,3 +1718,75 @@ async def batch_modify_gmail_message_labels(
         actions.append(f"Removed labels: {', '.join(remove_label_ids)}")
 
     return f"Labels updated for {len(message_ids)} messages: {'; '.join(actions)}"
+
+
+@server.tool()
+@handle_http_errors("batch_mark_gmail_messages_as_read", service_type="gmail")
+@require_google_service("gmail", GMAIL_MODIFY_SCOPE)
+async def batch_mark_gmail_messages_as_read(
+    service,
+    user_google_email: str,
+    message_ids: List[str],
+) -> str:
+    """
+    Marks multiple Gmail messages as read in a single batch request by removing the UNREAD label.
+
+    Args:
+        user_google_email (str): The user's Google email address. Required.
+        message_ids (List[str]): A list of message IDs to mark as read.
+
+    Returns:
+        str: Confirmation message with the count of messages marked as read.
+    """
+    logger.info(
+        f"[batch_mark_gmail_messages_as_read] Invoked. Email: '{user_google_email}', Message IDs count: {len(message_ids)}"
+    )
+
+    if not message_ids:
+        raise Exception("No message IDs provided")
+
+    body = {"ids": message_ids, "removeLabelIds": ["UNREAD"]}
+
+    await asyncio.to_thread(
+        service.users().messages().batchModify(userId="me", body=body).execute
+    )
+
+    return f"Successfully marked {len(message_ids)} message(s) as read."
+
+
+@server.tool()
+@handle_http_errors("batch_archive_gmail_messages", service_type="gmail")
+@require_google_service("gmail", GMAIL_MODIFY_SCOPE)
+async def batch_archive_gmail_messages(
+    service,
+    user_google_email: str,
+    message_ids: List[str],
+) -> str:
+    """
+    Archives multiple Gmail messages in a single batch request by removing the INBOX label.
+    Messages remain accessible in "All Mail" and other labels.
+
+    Args:
+        user_google_email (str): The user's Google email address. Required.
+        message_ids (List[str]): A list of message IDs to archive.
+
+    Returns:
+        str: Confirmation message with the count of messages archived.
+    """
+    logger.info(
+        f"[batch_archive_gmail_messages] Invoked. Email: '{user_google_email}', Message IDs count: {len(message_ids)}"
+    )
+
+    if not message_ids:
+        raise Exception("No message IDs provided")
+
+    body = {"ids": message_ids, "removeLabelIds": ["INBOX"]}
+
+    await asyncio.to_thread(
+        service.users().messages().batchModify(userId="me", body=body).execute
+    )
+
+    return (
+        f"Successfully archived {len(message_ids)} message(s).\n"
+        "Messages removed from Inbox but remain in All Mail."
+    )
